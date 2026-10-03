@@ -7,10 +7,10 @@ public class ErrorResponse {
     private String error;
     private List<String> details;
 
-
     public ErrorResponse() {
         details = new ArrayList<>();
     }
+
     public String getError() {
         return error;
     }
