@@ -143,7 +143,7 @@ public class MoviesHandler extends  BaseHttpHandler {
                     }
                 } else {
                     String[] partsQuery = query.split("=");
-                    if (partsQuery.length == 2 && partsQuery[0].equals("year")){
+                    if (partsQuery.length == 2 && partsQuery[0].equals("year")) {
                         return Endpoint.GET_MOVIES_BY_YEAR;
                     } else {
                         return Endpoint.UNKNOWN;
