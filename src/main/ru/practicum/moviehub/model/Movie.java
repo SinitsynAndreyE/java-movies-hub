@@ -4,6 +4,7 @@ public class Movie {
 
     private String title;
     private int year;
+    private int id;
 
     public Movie(String title, int year) {
         this.title = title;
@@ -24,5 +25,13 @@ public class Movie {
 
     public void setYear(int year) {
         this.year = year;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 }

@@ -27,6 +27,7 @@ public class MoviesStore {
 
     public int addMovie(Movie movie) {
         int id = movies.keySet().stream().max(Integer::compare).orElse(0) + 1;
+        movie.setId(id);
         movies.put(id, movie);
         return id;
     }

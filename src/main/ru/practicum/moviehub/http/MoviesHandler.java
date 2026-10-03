@@ -15,9 +15,11 @@ import java.util.List;
 
 public class MoviesHandler extends  BaseHttpHandler {
     private final MoviesServer server;
+    private final Gson gson;
 
     public MoviesHandler(MoviesServer server) {
         this.server = server;
+        gson = new Gson();
     }
 
     @Override
@@ -26,81 +28,19 @@ public class MoviesHandler extends  BaseHttpHandler {
 
         switch (endpoint) {
             case GET_MOVIES:
-                String jsonString = new Gson().toJson(server.getStore().getMovies().values());
-                sendJson(ex,200,jsonString);
+                getMoviesHandle(ex);
                 break;
             case GET_MOVIES_BY_YEAR:
-                String[] partsQuery = ex.getRequestURI().getQuery().split("=");
-                try {
-                    int id = Integer.parseInt(partsQuery[1]);
-                    List<Movie> movies = server.getStore().getMoviesByYear(id);
-                    sendJson(ex, 200, new Gson().toJson(movies));
-                } catch (NumberFormatException e) {
-                    ErrorResponse errorResponse = new ErrorResponse();
-                    errorResponse.setError("Некорректный параметр запроса — 'year'");
-                    sendJson(ex, 400, new Gson().toJson(errorResponse));
-                }
+                getMoviesByYearHandle(ex);
+                break;
             case GET_MOVIE:
-                String stringId = ex.getRequestURI().getPath().split("/")[2];
-                try {
-                    int id = Integer.parseInt(stringId);
-                    Movie movie = server.getStore().getMovie(id);
-                    if (movie == null) {
-                        ErrorResponse errorResponse = new ErrorResponse();
-                        errorResponse.setError("Фильм не найден");
-                        sendJson(ex, 404, new Gson().toJson(errorResponse));
-                    } else {
-                        sendJson(ex, 200, new Gson().toJson(movie));
-                    }
-                } catch (NumberFormatException e) {
-                    ErrorResponse errorResponse = new ErrorResponse();
-                    errorResponse.setError("Некорректный ID");
-                    sendJson(ex, 400, new Gson().toJson(errorResponse));
-                }
+                getMovieByIdHandle(ex);
+                break;
             case POST_MOVIE:
-                Headers headers = ex.getRequestHeaders();
-                if (!headers.containsKey("Content-Type") || !headers.get("Content-Type").getFirst().equals("application/json; charset=UTF-8")) {
-                    sendNoContent(ex, 415);
-                } else {
-                    try (InputStream is = ex.getRequestBody()) {
-                        String jsonBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
-                        JsonElement jsonElement = JsonParser.parseString(jsonBody);
-                        if (!jsonElement.getAsJsonObject().keySet().contains("title") || !jsonElement.getAsJsonObject().keySet().contains("year")) {
-                            ErrorResponse errorResponse = new ErrorResponse();
-                            errorResponse.setError("Некорректный JSON");
-                            sendJson(ex, 422, new Gson().toJson(errorResponse));
-                        } else {
-                            Movie movie = new Gson().fromJson(jsonBody, Movie.class);
-                            ErrorResponse errorResponse = new ErrorResponse();
-                            if (isValidMovie(movie, errorResponse)) {
-                                int id = server.getStore().addMovie(movie);
-                                String jsonPostString = "{\"id\":\"" + id + "\"," + jsonBody.substring(1);
-                                sendJson(ex, 201, jsonPostString);
-                            } else {
-                                sendJson(ex, 422, new Gson().toJson(errorResponse));
-                            }
-                        }
-                    }
-                }
+                postMovieHandle(ex);
                 break;
             case DELETE_MOVIE:
-                String stringDeleteId = ex.getRequestURI().getPath().split("/")[2];
-                try {
-                    int id = Integer.parseInt(stringDeleteId);
-                    Movie movie = server.getStore().getMovie(id);
-                    if (movie == null) {
-                        ErrorResponse errorResponse = new ErrorResponse();
-                        errorResponse.setError("Фильм не найден");
-                        sendJson(ex, 404, new Gson().toJson(errorResponse));
-                    } else {
-                        server.getStore().deleteMovie(id);
-                        sendNoContent(ex, 204);
-                    }
-                } catch (NumberFormatException e) {
-                    ErrorResponse errorResponse = new ErrorResponse();
-                    errorResponse.setError("Некорректный ID");
-                    sendJson(ex, 400, new Gson().toJson(errorResponse));
-                }
+                deleteMovieHandle(ex);
                 break;
             default:
                 sendNoContent(ex,405);
@@ -155,6 +95,90 @@ public class MoviesHandler extends  BaseHttpHandler {
                 return Endpoint.DELETE_MOVIE;
             default:
                 return Endpoint.UNKNOWN;
+        }
+    }
+
+    private void getMoviesHandle(HttpExchange ex) throws IOException {
+        String jsonString = gson.toJson(server.getStore().getMovies().values());
+        sendJson(ex,200,jsonString);
+    }
+
+    private void getMoviesByYearHandle(HttpExchange ex) throws IOException {
+        String[] partsQuery = ex.getRequestURI().getQuery().split("=");
+        try {
+            int id = Integer.parseInt(partsQuery[1]);
+            List<Movie> movies = server.getStore().getMoviesByYear(id);
+            sendJson(ex, 200, gson.toJson(movies));
+        } catch (NumberFormatException e) {
+            ErrorResponse errorResponse = new ErrorResponse();
+            errorResponse.setError("Некорректный параметр запроса — 'year'");
+            sendJson(ex, 400, gson.toJson(errorResponse));
+        }
+    }
+
+    private void getMovieByIdHandle(HttpExchange ex) throws  IOException {
+        String stringId = ex.getRequestURI().getPath().split("/")[2];
+        try {
+            int id = Integer.parseInt(stringId);
+            Movie movie = server.getStore().getMovie(id);
+            if (movie == null) {
+                ErrorResponse errorResponse = new ErrorResponse();
+                errorResponse.setError("Фильм не найден");
+                sendJson(ex, 404, gson.toJson(errorResponse));
+            } else {
+                sendJson(ex, 200, gson.toJson(movie));
+            }
+        } catch (NumberFormatException e) {
+            ErrorResponse errorResponse = new ErrorResponse();
+            errorResponse.setError("Некорректный ID");
+            sendJson(ex, 400, gson.toJson(errorResponse));
+        }
+    }
+
+    private void postMovieHandle(HttpExchange ex) throws IOException {
+        Headers headers = ex.getRequestHeaders();
+        if (!headers.containsKey("Content-Type") || !headers.get("Content-Type").getFirst().equals("application/json; charset=UTF-8")) {
+            sendNoContent(ex, 415);
+        } else {
+            try (InputStream is = ex.getRequestBody()) {
+                String jsonBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                JsonElement jsonElement = JsonParser.parseString(jsonBody);
+                if (!jsonElement.getAsJsonObject().keySet().contains("title") || !jsonElement.getAsJsonObject().keySet().contains("year")) {
+                    ErrorResponse errorResponse = new ErrorResponse();
+                    errorResponse.setError("Некорректный JSON");
+                    sendJson(ex, 422, gson.toJson(errorResponse));
+                } else {
+                    Movie movie = gson.fromJson(jsonBody, Movie.class);
+                    ErrorResponse errorResponse = new ErrorResponse();
+                    if (isValidMovie(movie, errorResponse)) {
+                        int id = server.getStore().addMovie(movie);
+                        String jsonPostString = "{\"id\":\"" + id + "\"," + jsonBody.substring(1);
+                        sendJson(ex, 201, jsonPostString);
+                    } else {
+                        sendJson(ex, 422, gson.toJson(errorResponse));
+                    }
+                }
+            }
+        }
+    }
+
+    private void deleteMovieHandle(HttpExchange ex) throws IOException {
+        String stringDeleteId = ex.getRequestURI().getPath().split("/")[2];
+        try {
+            int id = Integer.parseInt(stringDeleteId);
+            Movie movie = server.getStore().getMovie(id);
+            if (movie == null) {
+                ErrorResponse errorResponse = new ErrorResponse();
+                errorResponse.setError("Фильм не найден");
+                sendJson(ex, 404, gson.toJson(errorResponse));
+            } else {
+                server.getStore().deleteMovie(id);
+                sendNoContent(ex, 204);
+            }
+        } catch (NumberFormatException e) {
+            ErrorResponse errorResponse = new ErrorResponse();
+            errorResponse.setError("Некорректный ID");
+            sendJson(ex, 400, gson.toJson(errorResponse));
         }
     }
 }
